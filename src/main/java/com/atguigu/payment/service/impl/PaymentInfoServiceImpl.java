@@ -1,8 +1,8 @@
-package com.atguigu.service.impl;
+package com.atguigu.payment.service.impl;
 
-import com.atguigu.mapper.PaymentInfoMapper;
+import com.atguigu.payment.mapper.PaymentInfoMapper;
 import com.atguigu.payment.entity.PaymentInfo;
-import com.atguigu.service.PaymentInfoService;
+import com.atguigu.payment.service.PaymentInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 

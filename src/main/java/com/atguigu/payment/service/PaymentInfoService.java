@@ -1,4 +1,4 @@
-package com.atguigu.service;
+package com.atguigu.payment.service;
 
 import com.atguigu.payment.entity.PaymentInfo;
 import com.baomidou.mybatisplus.extension.service.IService;
