@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8090
 
 spring:
   application:
@@ -8,7 +8,7 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource      # 默认，可不写
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/库名?characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/payment_demo?characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: 789456      # 如果是0开头,加上单引号不然可能会报错
 
@@ -28,3 +28,7 @@ mybatis-plus:
     db-config:
       id-type: auto #主键策略自增长,不写默认雪花,接值需要用Long或String,数据库用的是bigint或varchar(64)
       update-strategy: not_empty  # 在更新时只更新非空和非null的字段
+
+#logging:
+#  level:
+#    root: debug
