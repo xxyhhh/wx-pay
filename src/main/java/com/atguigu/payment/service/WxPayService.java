@@ -1,5 +1,10 @@
 package com.atguigu.payment.service;
 
+import com.wechat.pay.java.service.billdownload.model.QueryBillEntity;
+import com.wechat.pay.java.service.payments.model.Transaction;
+import com.wechat.pay.java.service.refund.model.Refund;
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.Map;
 
 /**
@@ -12,10 +17,24 @@ import java.util.Map;
  * @Version 1.0
  */
 public interface WxPayService {
-    /**
-     * 发起支付请求，调用统一下单api,返回code_url,生成支付二维码
-     * @param productId
-     * @return
-     */
+
     Map<String, Object> nativePay(Long productId);
+
+    void wxnotify(HttpServletRequest request);
+
+    void wxRefundsNotify(HttpServletRequest request);
+
+    void cancelOrder(String orderNo);
+
+    Transaction queryOrder(String orderNo);
+
+    void checkOrderStatus(String orderNo);
+
+    void refunds(String orderNo, String reason);
+
+    Refund queryRefund(String refundNo);
+
+    QueryBillEntity queryBill(String billDate, String type);
+
+    String downloadBill(String billDate, String type);
 }

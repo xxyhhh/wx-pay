@@ -2,6 +2,7 @@ package com.atguigu.payment.config;
 
 import com.wechat.pay.java.core.Config;
 import com.wechat.pay.java.core.RSAAutoCertificateConfig;
+import com.wechat.pay.java.core.http.HttpClient;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -10,7 +11,6 @@ import org.springframework.context.annotation.PropertySource;
 import com.wechat.pay.java.core.util.PemUtil;
 
 import java.security.PrivateKey;
-import java.util.Map;
 
 
 @Configuration

@@ -7,11 +7,16 @@ import com.atguigu.payment.entity.OrderInfo;
 import com.atguigu.payment.mapper.ProductMapper;
 import com.atguigu.payment.service.OrderInfoService;
 import com.atguigu.payment.util.OrderNoUtils;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import org.apache.tomcat.SimpleInstanceManager;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo> implements OrderInfoService {
@@ -51,17 +56,71 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
                       .update();
     }
 
+    /***
+     * 按照创建时间倒序获取所有订单
+     */
+    @Override
+    public List<OrderInfo> listOrderByCreateTimeDese() {
+        return lambdaQuery().orderByDesc(OrderInfo::getCreateTime).list();
+    }
+
+    /**
+     * 根据订单号，更新订单状态为支付成功
+     */
+    @Override
+    public void updateStatusByOrderNo(String orderNo, OrderStatus orderStatus) {
+        // 执行更新
+        lambdaUpdate().eq(OrderInfo::getOrderNo, orderNo)
+                    .set(OrderInfo::getOrderStatus, orderStatus.getType())
+                    .update();
+    }
+
+    /**
+     * 根据订单号获取订单状态
+     * 在这里我做了空对象的处理，因为可能在回调时，这个订单可能被删除了，所以要先判断一下，防止空指针
+     */
+    @Override
+    public String getOrderStatus(String orderNo) {
+        return
+                Optional.ofNullable(lambdaQuery()
+                                .eq(OrderInfo::getOrderNo, orderNo)
+                                .select(OrderInfo::getOrderStatus)
+                                .one())
+                        .map(OrderInfo::getOrderStatus)
+                        .orElse(null);
+    }
+
+    /**
+     * 查询超过5min还未支付的订单
+     */
+    @Override
+    public List<OrderInfo> getNoPayOrderByDuration(int minutes) {
+        Instant minus = Instant.now().minus(Duration.ofMinutes(minutes)); // 当前时间减去 5min
+        List<OrderInfo> list = lambdaQuery()
+                .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
+                .lt(OrderInfo::getCreateTime, minus)
+                .list();
+        return list;
+    }
+
+    /**
+     * 根据订单号获取订单信息
+     */
+    @Override
+    public OrderInfo getOrderByOrderNo(String orderNo) {
+        OrderInfo orderInfo = lambdaQuery().eq(OrderInfo::getOrderNo, orderNo).one();
+        return orderInfo;
+    }
+
     /****
      * 根据商品id查找未支付的订单
      * 防止重复创建订单对象
      */
     private OrderInfo getNoPayOrderByProductId(Long productId){
-        return lambdaQuery().eq(OrderInfo::getProductId, productId)
-                .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
+        return lambdaQuery()
               //.eq(OrderInfo::getUserId, xxx)     这里是要填的，但是这个项目没做权限所以省略了
+                .eq(OrderInfo::getProductId, productId)
+                .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
                 .one();
     }
-
-
-
 }

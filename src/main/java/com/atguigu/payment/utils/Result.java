@@ -1,8 +1,12 @@
 package com.atguigu.payment.utils;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.util.HashMap;
 
 @Data
+@Accessors(chain = true)
 public class Result<T> {
     private Integer code;  //状态码
     private String message; //返回信息
@@ -42,22 +46,17 @@ public class Result<T> {
         return Result.build(data, ResultCodeEnum.SUCCESS.getCode(), message);
     }
 
+    public static Result ok(String key, Object value) {
+        HashMap<String, Object> map = new HashMap<>();
+        map.put(key, value);
+        return Result.ok(map);
+    }
+
     public static <T> Result<T> fail(T data) {
         return Result.build(data, ResultCodeEnum.ERROR);
     }
 
     public static <T> Result<T> fail(T data, String message) {
         return Result.build(data, ResultCodeEnum.ERROR.getCode(), message);
-    }
-
-    //自定义code和message
-    public Result<T> code(Integer code) {
-        this.setCode(code);
-        return this;
-    }
-
-    public Result<T> message(String message) {
-        this.setMessage(message);
-        return this;
     }
 }
