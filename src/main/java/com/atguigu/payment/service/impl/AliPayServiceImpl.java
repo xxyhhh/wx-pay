@@ -9,11 +9,6 @@ import com.alipay.api.diagnosis.DiagnosisUtils;
 import com.alipay.api.domain.*;
 import com.alipay.api.request.*;
 import com.alipay.api.response.*;
-import com.alipay.v3.ApiClient;
-import com.alipay.v3.ApiException;
-import com.alipay.v3.Configuration;
-import com.alipay.v3.api.AlipayTradeApi;
-import com.alipay.v3.util.GenericExecuteApi;
 import com.atguigu.payment.entity.OrderInfo;
 import com.atguigu.payment.entity.RefundInfo;
 import com.atguigu.payment.enums.OrderStatus;
@@ -55,8 +50,6 @@ public class AliPayServiceImpl implements AliPayService {
     private PaymentInfoService paymentInfoService;
     @Resource
     private RefundInfoService refundInfoService;
-    @Resource
-    private ApiClient apiClient;
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
 
