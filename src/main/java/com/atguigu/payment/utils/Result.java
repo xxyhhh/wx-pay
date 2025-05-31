@@ -46,7 +46,7 @@ public class Result<T> {
         return Result.build(data, ResultCodeEnum.SUCCESS.getCode(), message);
     }
 
-    public static Result ok(String key, Object value) {
+    public static Result<HashMap<String, Object>> okByMap(String key, Object value) {
         HashMap<String, Object> map = new HashMap<>();
         map.put(key, value);
         return Result.ok(map);

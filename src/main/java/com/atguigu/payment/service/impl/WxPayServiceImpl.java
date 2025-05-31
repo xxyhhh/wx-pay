@@ -5,7 +5,9 @@ import com.atguigu.payment.config.WxPayConfig;
 import com.atguigu.payment.entity.OrderInfo;
 import com.atguigu.payment.entity.RefundInfo;
 import com.atguigu.payment.enums.OrderStatus;
+import com.atguigu.payment.enums.PayType;
 import com.atguigu.payment.enums.wxpay.WxNotifyType;
+import com.atguigu.payment.enums.wxpay.WxRefundStatus;
 import com.atguigu.payment.enums.wxpay.WxTradeState;
 import com.atguigu.payment.service.OrderInfoService;
 import com.atguigu.payment.service.PaymentInfoService;
@@ -35,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import com.wechat.pay.java.service.refund.model.CreateRequest;
 
@@ -75,7 +78,7 @@ public class WxPayServiceImpl implements WxPayService {
     public Map<String, Object> nativePay(Long productId) {
         try {
             //生成订单
-            OrderInfo orderInfo = orderInfoService.createOrderByProductId(productId);
+            OrderInfo orderInfo = orderInfoService.createOrderByProductId(productId, PayType.WXPAY.getType());
             String codeUrl = orderInfo.getCodeUrl();
             if (StringUtils.hasText(codeUrl)) {
                 log.info("订单已经存在");
@@ -119,7 +122,7 @@ public class WxPayServiceImpl implements WxPayService {
             map.put("orderNo", orderInfo.getOrderNo());
             return map;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.info("微信发起支付请求，调用统一下单api失败",e);
             throw new RuntimeException();
         }
     }
@@ -214,6 +217,7 @@ public class WxPayServiceImpl implements WxPayService {
      */
     @Override
     public Transaction queryOrder(String orderNo) {
+        log.info("查询订单接口调用 ===> {}", orderNo);
         //1、创建微信支付使用对象
         NativePayService service = new NativePayService.Builder().config(config).build();
 
@@ -236,7 +240,7 @@ public class WxPayServiceImpl implements WxPayService {
 
     /**
      * 根据订单号查询微信支付查单接口，核实订单状态
-     * 如果订单已支付，则更新商户端订单状态
+     * 如果订单已支付，则更新商户端订单状态,并记录支付日志
      * 如果订单未支付(在给定期限内未支付)，则调用关单接口关闭订单，并更新商户端订单状态
      */
     @Override
@@ -309,6 +313,7 @@ public class WxPayServiceImpl implements WxPayService {
 
     /**
      * 查询账单
+     *
      * @param billDate 账单日期，只能查今天之前的日期且3个月内，格式必须是YYYY-MM-DD
      * @param type     账单类型
      */
@@ -381,6 +386,39 @@ public class WxPayServiceImpl implements WxPayService {
 
         } catch (Exception e) {
             throw new RuntimeException("下载或验证账单失败", e);
+        }
+    }
+
+    /**
+     * 根据退款单号核实退款单状态
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void checkRefundStatus(String refundNo) {
+        log.warn("根据退款单号核实退款单状态 ===> {}", refundNo);
+
+        //调用查询退款单接口
+        Refund refund = this.queryRefund(refundNo);
+        //获取微信支付端退款状态和商家订单号
+        Status status = refund.getStatus();
+        String outTradeNo = refund.getOutTradeNo();
+
+        if (WxRefundStatus.SUCCESS.getType().equals(status.name())) {
+
+            log.warn("核实订单已退款成功 ===> {}", refundNo);
+            //退款成功，则更新订单状态
+            orderInfoService.updateStatusByOrderNo(outTradeNo, OrderStatus.REFUND_SUCCESS);
+            //更新退款单
+            refundInfoService.updateRefund1(refund);
+        }
+
+        if (WxRefundStatus.ABNORMAL.getType().equals(status.name())) {    // 退款异常
+
+            log.warn("核实订单退款异常  ===> {}", refundNo);
+            //退款失败，则更新订单状态
+            orderInfoService.updateStatusByOrderNo(outTradeNo, OrderStatus.REFUND_ABNORMAL);
+            //更新退款单
+            refundInfoService.updateRefund1(refund);
         }
     }
 

@@ -7,6 +7,8 @@ import com.wechat.pay.java.service.payments.model.Transaction;
 import com.wechat.pay.java.service.refund.model.Refund;
 import com.wechat.pay.java.service.refund.model.RefundNotification;
 
+import java.util.List;
+
 public interface RefundInfoService extends IService<RefundInfo> {
 
     RefundInfo createRefundsByOrderNo(String orderNo, String reason);
@@ -14,4 +16,10 @@ public interface RefundInfoService extends IService<RefundInfo> {
     void updateRefund1(Refund response);
 
     void updateRefund2(RefundNotification refundNotification);
+
+    List<RefundInfo> getNoRefundOrderByDuration(int minutes);
+
+    RefundInfo createRefundByOrderNoForAliPay(String orderNo, String reason);
+
+    void updateRefundForAliPay(String refundNo, String body, String type);
 }

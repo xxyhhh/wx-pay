@@ -29,6 +29,6 @@ mybatis-plus:
       id-type: auto #主键策略自增长,不写默认雪花,接值需要用Long或String,数据库用的是bigint或varchar(64)
       update-strategy: not_empty  # 在更新时只更新非空和非null的字段
 
-#logging:
-#  level:
-#    root: debug
+logging:
+  level:
+    root: info

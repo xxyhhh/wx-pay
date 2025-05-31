@@ -37,4 +37,6 @@ public interface WxPayService {
     QueryBillEntity queryBill(String billDate, String type);
 
     String downloadBill(String billDate, String type);
+
+    void checkRefundStatus(String refundNo);
 }

@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -31,9 +32,9 @@ public class OrderInfoController {
 
     @GetMapping("/list")
     @Operation(summary = "商品订单列表")
-    public Result list() {
+    public Result<HashMap<String, Object>> list() {
         List<OrderInfo> list = orderInfoService.listOrderByCreateTimeDese();
-        return Result.ok("list",list);
+        return Result.okByMap("list",list);
     }
 
     @GetMapping("query-order-status/{orderNo}")

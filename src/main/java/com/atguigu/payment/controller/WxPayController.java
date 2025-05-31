@@ -1,7 +1,6 @@
 package com.atguigu.payment.controller;
 
 import com.alibaba.fastjson2.JSON;
-import com.atguigu.payment.config.WxPayConfig;
 import com.atguigu.payment.service.WxPayService;
 import com.atguigu.payment.utils.Result;
 import com.wechat.pay.java.service.billdownload.model.QueryBillEntity;
@@ -34,9 +33,6 @@ import java.util.Map;
 @RestController
 @Slf4j
 public class WxPayController {
-
-    @Resource
-    private WxPayConfig wxPayConfig;
 
     @Resource
     private WxPayService wxPayService;
@@ -117,7 +113,7 @@ public class WxPayController {
     }
 
     @GetMapping("/downloadbill/{billDate}/{type}")
-    @Operation(summary = "下载账单")
+    @Operation(summary = "下载商家的账单")
     public Result<HashMap<String, Object>> downloadBill(@PathVariable("billDate") String billDate, @PathVariable("type") String type){
         String res = wxPayService.downloadBill(billDate, type);
         HashMap<String, Object> map = new HashMap<>();

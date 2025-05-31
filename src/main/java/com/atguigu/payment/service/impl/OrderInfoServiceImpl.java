@@ -25,10 +25,10 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     private ProductMapper productMapper;
 
     @Override
-    public OrderInfo createOrderByProductId(Long productId) {
+    public OrderInfo createOrderByProductId(Long productId,String paymentType) {
 
         // 查找已经存在但未支付的订单
-        OrderInfo orderInfo = this.getNoPayOrderByProductId(productId);
+        OrderInfo orderInfo = this.getNoPayOrderByProductId(productId,paymentType);
         if (orderInfo != null) {
             return orderInfo;
         }
@@ -42,6 +42,7 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         orderInfo.setProductId(productId);
         orderInfo.setTotalFee(product.getPrice()); //分
         orderInfo.setOrderStatus(OrderStatus.NOTPAY.getType());
+        orderInfo.setPaymentType(paymentType);
         baseMapper.insert(orderInfo);
         return orderInfo;
     }
@@ -94,11 +95,12 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
      * 查询超过5min还未支付的订单
      */
     @Override
-    public List<OrderInfo> getNoPayOrderByDuration(int minutes) {
+    public List<OrderInfo> getNoPayOrderByDuration(int minutes, String paymentType) {
         Instant minus = Instant.now().minus(Duration.ofMinutes(minutes)); // 当前时间减去 5min
         List<OrderInfo> list = lambdaQuery()
                 .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
                 .lt(OrderInfo::getCreateTime, minus)
+                .eq(OrderInfo::getPaymentType, paymentType)
                 .list();
         return list;
     }
@@ -116,11 +118,12 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
      * 根据商品id查找未支付的订单
      * 防止重复创建订单对象
      */
-    private OrderInfo getNoPayOrderByProductId(Long productId){
+    private OrderInfo getNoPayOrderByProductId(Long productId,String paymentType){
         return lambdaQuery()
               //.eq(OrderInfo::getUserId, xxx)     这里是要填的，但是这个项目没做权限所以省略了
                 .eq(OrderInfo::getProductId, productId)
                 .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
+                .eq(OrderInfo::getPaymentType, paymentType)
                 .one();
     }
 }
