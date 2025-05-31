@@ -9,6 +9,11 @@ import com.alipay.api.diagnosis.DiagnosisUtils;
 import com.alipay.api.domain.*;
 import com.alipay.api.request.*;
 import com.alipay.api.response.*;
+import com.alipay.v3.ApiClient;
+import com.alipay.v3.ApiException;
+import com.alipay.v3.Configuration;
+import com.alipay.v3.api.AlipayTradeApi;
+import com.alipay.v3.util.GenericExecuteApi;
 import com.atguigu.payment.entity.OrderInfo;
 import com.atguigu.payment.entity.RefundInfo;
 import com.atguigu.payment.enums.OrderStatus;
@@ -50,6 +55,8 @@ public class AliPayServiceImpl implements AliPayService {
     private PaymentInfoService paymentInfoService;
     @Resource
     private RefundInfoService refundInfoService;
+    @Resource
+    private ApiClient apiClient;
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
 
@@ -261,7 +268,7 @@ public class AliPayServiceImpl implements AliPayService {
             // 更新本地商户端订单状态
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.SUCCESS);
             // 记录支付日志
-            Map<String, String> paymentInfoMap = Optional.of(result)
+            Map<String, String> paymentInfoMap = Optional.ofNullable(result)
                     .map(JSON::parseObject)
                     .map(json -> json.getObject("alipay_trade_query_response", new TypeReference<Map<String, String>>() {
                     }))
