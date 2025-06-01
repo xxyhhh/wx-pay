@@ -40,7 +40,7 @@ public class WxPayController {
     @Operation(summary = "调用统一下单API,生成支付二维码")
     @PostMapping("/native/{productId}")
     public Result<Map<String, Object>> createWxPayment(@PathVariable("productId") Long productId) {
-        log.info("发起支付请求，调用统一下单api");
+        log.info("【微信支付】发起支付请求,调用统一下单api开始创建订单, 商品ID: {}", productId);
         //返回支付二维码和订单号
         Map<String, Object> map = wxPayService.nativePay(productId);
         return Result.ok(map);
@@ -49,6 +49,7 @@ public class WxPayController {
     @PostMapping("/native/notify")
     @Operation(summary = "支付成功后，微信调用该方法")
     public ResponseEntity<Map<String, Object>> nativeNotify(HttpServletRequest request) {
+        log.info("【微信支付】接收支付通知");
         try {
             wxPayService.wxnotify(request);
 

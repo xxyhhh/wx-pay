@@ -2,6 +2,7 @@ package com.atguigu.payment.service.impl;
 
 import com.alibaba.fastjson2.JSON;
 import com.atguigu.payment.entity.OrderInfo;
+import com.atguigu.payment.enums.PayType;
 import com.atguigu.payment.enums.wxpay.WxRefundStatus;
 import com.atguigu.payment.mapper.RefundInfoMapper;
 import com.atguigu.payment.entity.RefundInfo;
@@ -39,6 +40,7 @@ public class RefundInfoServiceImpl extends ServiceImpl<RefundInfoMapper, RefundI
         refundInfo.setRefundNo(OrderNoUtils.getRefundNo()); //退款单号
         refundInfo.setTotalFee(orderInfo.getTotalFee()); //原订单金额
         refundInfo.setRefund(orderInfo.getTotalFee()); //退款金额(原订单金额是多少就退多少)
+        refundInfo.setPaymentType(PayType.WXPAY.getType());
         refundInfo.setReason(reason); //退款原因
         save(refundInfo);
         return refundInfo;
@@ -82,11 +84,12 @@ public class RefundInfoServiceImpl extends ServiceImpl<RefundInfoMapper, RefundI
      * 找出申请退款超过minutes分钟并且未成功的退款单
      */
     @Override
-    public List<RefundInfo> getNoRefundOrderByDuration(int minutes) {
+    public List<RefundInfo> getNoRefundOrderByDuration(int minutes,String paymentType) {
         //minutes分钟之前的时间
         Instant instant = Instant.now().minus(Duration.ofMinutes(minutes));
         return lambdaQuery()
                 .eq(RefundInfo::getRefundStatus, WxRefundStatus.PROCESSING.getType())
+                .eq(RefundInfo::getPaymentType, paymentType)
                 .le(RefundInfo::getCreateTime, instant)
                 .list();
     }
@@ -107,6 +110,7 @@ public class RefundInfoServiceImpl extends ServiceImpl<RefundInfoMapper, RefundI
 
         refundInfo.setTotalFee(orderInfo.getTotalFee());//原订单金额(分)
         refundInfo.setRefund(orderInfo.getTotalFee());//退款金额(分)
+        refundInfo.setPaymentType(PayType.ALIPAY.getType());
         refundInfo.setReason(reason);//退款原因
 
         //保存退款订单
@@ -124,6 +128,7 @@ public class RefundInfoServiceImpl extends ServiceImpl<RefundInfoMapper, RefundI
         lambdaUpdate()
                 .eq(RefundInfo::getRefundNo, refundNo)
                 .set(RefundInfo::getRefundStatus, refundStatus) //退款状态
+                .set(RefundInfo::getRefundId, JSON.parseObject(content).getString("refund_id"))
                 .set(RefundInfo::getContentReturn, content) //将全部响应结果存入数据库的content字段
                 .update();
     }

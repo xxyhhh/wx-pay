@@ -75,6 +75,7 @@ public class WxPayServiceImpl implements WxPayService {
      * 发起支付请求，调用统一下单api,返回code_url,生成支付二维码
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> nativePay(Long productId) {
         try {
             //生成订单
@@ -244,35 +245,35 @@ public class WxPayServiceImpl implements WxPayService {
      * 如果订单未支付(在给定期限内未支付)，则调用关单接口关闭订单，并更新商户端订单状态
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void checkOrderStatus(String orderNo) {
-        log.warn("根据订单号核实订单状态 ===> {}", orderNo);
+        log.info("【微信支付】开始核实订单状态, 订单号: {}", orderNo);
         Transaction result = queryOrder(orderNo);
-        String state = result.getTradeState().name();
-
-        if (WxTradeState.SUCCESS.getType().equals(state)) {
-            log.warn("核实订单已支付 ===> {}", orderNo);
-            //支付成功
-            //更新商户端订单状态
-            orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.SUCCESS);
-            //记录支付日志
-            paymentInfoService.createPaymentInfo(result);
+        
+        if (result == null) {
+            log.info("【微信支付】订单不存在, 订单号: {}", orderNo);
+            return;
         }
-
-        if (WxTradeState.NOTPAY.getType().equals(state)) {
-            log.warn("核实订单未支付 ===> {}", orderNo);
-            //订单未支付(在给定时间内未支付)
-            //调用关单接口关闭订单
+        
+        String state = result.getTradeState().name();
+        if (WxTradeState.SUCCESS.getType().equals(state)) {
+            log.info("【微信支付】订单已支付成功, 订单号: {}", orderNo);
+            orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.SUCCESS);
+            paymentInfoService.createPaymentInfo(result);
+        } else if (WxTradeState.NOTPAY.getType().equals(state)) {
+            log.info("【微信支付】订单未支付, 准备关闭订单, 订单号: {}", orderNo);
             closeOrder(orderNo);
-            //更新商户端订单状态
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.CLOSED);
         }
     }
 
     /**
-     * 申请退款
+     * 微信申请退款
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void refunds(String orderNo, String reason) {
+        log.info("【微信支付】开始申请退款, 订单号: {}, 退款原因: {}", orderNo, reason);
         //根据订单编号创建退款单
         RefundInfo refundInfo = refundInfoService.createRefundsByOrderNo(orderNo, reason);
         //调用退款api
@@ -283,17 +284,21 @@ public class WxPayServiceImpl implements WxPayService {
             CreateRequest request = getCreateRequest(refundInfo);
 
             response = service.create(request);
+            log.info("【微信支付】退款申请成功, 订单号: {}, 退款单号: {}", orderNo, response.getOutRefundNo());
             //更新订单状态（退款中）
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.REFUND_PROCESSING);
             //更新退款单(这次wx给的也是退款中的状态)
             refundInfoService.updateRefund1(response);
 
         } catch (HttpException e) { // 发送HTTP请求失败
-            log.error("请求失败，请求信息为：{}", e.getHttpRequest());
+            log.error("【微信支付】退款HTTP请求失败, 订单号: {}, 请求信息: {}", orderNo, e.getHttpRequest());
+            throw new RuntimeException("退款请求失败", e);
         } catch (ServiceException e) { // 服务返回状态小于200或大于等于300，例如500
-            log.error("请求失败，响应信息为：{}", e.getResponseBody());
+            log.error("【微信支付】退款服务异常, 订单号: {}, 响应信息: {}", orderNo, e.getResponseBody());
+            throw new RuntimeException("退款服务异常", e);
         } catch (MalformedMessageException e) { // 服务返回成功，返回体类型不合法，或者解析返回体失败
-            log.error("API响应内容解析失败，错误信息：{}", e.getMessage());
+            log.error("【微信支付】退款响应解析失败, 订单号: {}, 错误信息: {}", orderNo, e.getMessage());
+            throw new RuntimeException("退款响应解析失败", e);
         }
     }
 
@@ -381,11 +386,9 @@ public class WxPayServiceImpl implements WxPayService {
             if (!actualHash.equals(expectedHash)) {
                 throw new RuntimeException("账单完整性校验失败");
             }
-
             return billContent;
-
         } catch (Exception e) {
-            throw new RuntimeException("下载或验证账单失败", e);
+            throw new RuntimeException("【微信支付】下载或验证账单失败", e);
         }
     }
 
@@ -395,7 +398,7 @@ public class WxPayServiceImpl implements WxPayService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void checkRefundStatus(String refundNo) {
-        log.warn("根据退款单号核实退款单状态 ===> {}", refundNo);
+        log.info("【微信支付】开始核实退款单状态, 退款单号: {}", refundNo);
 
         //调用查询退款单接口
         Refund refund = this.queryRefund(refundNo);
@@ -405,7 +408,7 @@ public class WxPayServiceImpl implements WxPayService {
 
         if (WxRefundStatus.SUCCESS.getType().equals(status.name())) {
 
-            log.warn("核实订单已退款成功 ===> {}", refundNo);
+            log.info("【微信支付】核实订单已退款成功 ===> {}", refundNo);
             //退款成功，则更新订单状态
             orderInfoService.updateStatusByOrderNo(outTradeNo, OrderStatus.REFUND_SUCCESS);
             //更新退款单
@@ -414,7 +417,7 @@ public class WxPayServiceImpl implements WxPayService {
 
         if (WxRefundStatus.ABNORMAL.getType().equals(status.name())) {    // 退款异常
 
-            log.warn("核实订单退款异常  ===> {}", refundNo);
+            log.info("【微信支付】核实订单退款异常  ===> {}", refundNo);
             //退款失败，则更新订单状态
             orderInfoService.updateStatusByOrderNo(outTradeNo, OrderStatus.REFUND_ABNORMAL);
             //更新退款单
@@ -463,6 +466,7 @@ public class WxPayServiceImpl implements WxPayService {
     //title:支付成功后的业务处理
     //1.1、这里先判断当前订单状态，主要是怕回调通知重复执行(如果你的服务没来得及返回/网络原因 "success" 给微信,出现超时)
     //1.2、如果重复执行，导致 mq(如多次扣库存)、或其它操作(如记录日志) 的话 会被重复执行
+    @Transactional(rollbackFor = Exception.class)
     public void handlePayment(Transaction transaction) {
         //商户订单号
         String orderNo = transaction.getOutTradeNo();
@@ -488,6 +492,7 @@ public class WxPayServiceImpl implements WxPayService {
     //title:退款成功后的业务处理
     //1.1、这里先判断当前退款单状态，主要是怕回调通知重复执行(如果你的服务没来得及返回/网络原因 "success" 给微信,出现超时)
     //1.2、如果重复执行，会对业务产生影响
+    @Transactional(rollbackFor = Exception.class)
     public void handleRefund(RefundNotification refundNotification) {
         //商户订单号
         String orderNo = refundNotification.getOutTradeNo();

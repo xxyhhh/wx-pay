@@ -53,11 +53,11 @@ public class AliPayServiceImpl implements AliPayService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
 
-    //    @Override
-    @Transactional
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public String tradeCreate(Long productId) {
         try {
-            log.info("生成订单");
+            log.info("【支付宝支付】开始创建订单, productId: {}", productId);
             OrderInfo orderInfo = orderInfoService.createOrderByProductId(productId, PayType.ALIPAY.getType());
 
             // 构造请求参数以调用接口
@@ -106,20 +106,18 @@ public class AliPayServiceImpl implements AliPayService {
             AlipayTradePagePayResponse response = alipayClient.pageExecute(request, "POST");
             String pageRedirectionData = response.getBody();
             if (response.isSuccess()) {
-                log.info("调用成功,返回结果====>{}", pageRedirectionData);
+                log.info("【支付宝支付】创建订单成功, 订单号: {}, 返回结果: {}", orderInfo.getOrderNo(), pageRedirectionData);
                 return pageRedirectionData;
             } else {
                 // sdk版本是"4.38.0.ALL"及以上,可以参考下面的示例获取诊断链接
                 String diagnosisUrl = DiagnosisUtils.getDiagnosisUrl(response);
-                log.info("调用失败,返回结果====>诊断链接{},状态码{},信息{}", diagnosisUrl, response.getCode(), response.getMsg());
+                log.error("【支付宝支付】创建订单失败, 订单号: {}, 诊断链接: {}, 状态码: {}, 错误信息: {}", 
+                    orderInfo.getOrderNo(), diagnosisUrl, response.getCode(), response.getMsg());
                 throw new RuntimeException("创建支付交易失败");
             }
         } catch (AlipayApiException e) {
-            log.error("支付宝API调用失败", e);
+            log.error("【支付宝支付】API调用异常", e);
             throw new RuntimeException("支付宝支付请求失败", e);
-        } catch (RuntimeException e) {
-            log.error("运行时异常", e);
-            throw new RuntimeException("创建支付交易失败", e);
         }
     }
 
@@ -127,8 +125,9 @@ public class AliPayServiceImpl implements AliPayService {
      * 支付宝支付成功回调处理
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void processOrder(Map<String, String> params) {
-        log.info("支付成功回调处理");
+        log.info("【支付宝支付】开始处理支付回调通知, 参数: {}", params);
         // 获取订单号
         String orderNo = params.get("out_trade_no");
         // 处理重复通知,由于网络原因，我们无法及时发送success给支付宝，导致他多次发送通知，同一个订单的日志会被记录多次
@@ -157,7 +156,7 @@ public class AliPayServiceImpl implements AliPayService {
 
     private void closeOrder(String orderNo) {
         try {
-            log.info("关单接口调用 ===> {}", orderNo);
+            log.info("【支付宝支付】关单接口调用 ===> {}", orderNo);
             // 构造请求参数以调用接口
             AlipayTradeCloseRequest request = new AlipayTradeCloseRequest();
             AlipayTradeCloseModel model = new AlipayTradeCloseModel();
@@ -172,7 +171,7 @@ public class AliPayServiceImpl implements AliPayService {
             AlipayTradeCloseResponse response = alipayClient.execute(request);
 
             if (response.isSuccess()) {
-                log.info("调用成功,返回结果====>{}", response.getBody());
+                log.info("【支付宝支付】调用成功,返回结果====>{}", response.getBody());
             } else {
                 // sdk版本是"4.38.0.ALL"及以上,可以参考下面的示例获取诊断链接
                 String diagnosisUrl = DiagnosisUtils.getDiagnosisUrl(response);
@@ -183,7 +182,7 @@ public class AliPayServiceImpl implements AliPayService {
                 // 但是这个支付宝的日志--sdk.biz.err--打印交易不存在，code40004，没找到解决办法
             }
         } catch (AlipayApiException e) {
-            throw new RuntimeException("用户取消订单失败");
+            throw new RuntimeException("用户取消订单失败",e);
         }
     }
 
@@ -193,7 +192,7 @@ public class AliPayServiceImpl implements AliPayService {
     @Override
     public String queryOrder(String orderNo) {
         try {
-            log.info("查询订单接口调用 ===> {}", orderNo);
+            log.info("【支付宝支付】开始查询订单, 订单号: {}", orderNo);
 
             // 构造请求参数以调用接口
             AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
@@ -211,7 +210,7 @@ public class AliPayServiceImpl implements AliPayService {
             String result = response.getBody();
 
             if (response.isSuccess()) {
-                log.info("调用成功,返回结果====>{}", result);
+                log.info("【支付宝支付】查询订单信息调用成功, 订单号: {}, 返回结果: {}", orderNo, result);
                 return result;
             } else {
                 // sdk版本是"4.38.0.ALL"及以上,可以参考下面的示例获取诊断链接
@@ -221,6 +220,7 @@ public class AliPayServiceImpl implements AliPayService {
                 return null;
             }
         } catch (AlipayApiException e) {
+            log.error("【支付宝支付】处理订单异常, 订单号: {}, 错误信息: {}", orderNo, e.getMessage());
             throw new RuntimeException("通过商户订单号手动查询订单信息失败", e);
         }
     }
@@ -233,35 +233,36 @@ public class AliPayServiceImpl implements AliPayService {
      */
     @Override
     public void checkOrderStatus(String orderNo) {
-        log.warn("根据订单号核实订单状态 ===> {}", orderNo);
+        log.info("【支付宝支付】开始核实订单状态, 订单号: {}", orderNo);
         String result = queryOrder(orderNo);
         // 1、订单未创建
         if (result == null) {
-            log.warn("支付宝核实订单未创建 ===> {}", orderNo);
-            // 更新本地订单状态
+            log.info("【支付宝支付】订单未创建, 订单号: {}", orderNo);
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.CLOSED);
+            return;
         }
         // 2、订单状态未支付
         // 将 result 字符串解析为 JSONObject
-        String tradeStatus = Optional.ofNullable(result)
+        String tradeStatus = Optional.of(result)
                 .map(JSON::parseObject)
                 .map(js -> js.getObject("alipay_trade_query_response", AlipayTradeQueryResponse.class, JSONReader.Feature.SupportSmartMatch))
                 .map(AlipayTradeQueryResponse::getTradeStatus)
                 .orElse(null);
         if (AliPayTradeState.NOTPAY.getType().equals(tradeStatus)) {
-            log.warn("支付宝核实订单未支付 ===> {}", orderNo);
+            log.info("【支付宝支付】订单未支付, 准备关闭订单, 订单号: {}", orderNo);
             // 关单
             closeOrder(orderNo);
             // 更新本地商户端订单状态
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.CLOSED);
+            return;
         }
         // 3、订单状态已支付
         if (AliPayTradeState.SUCCESS.getType().equals(tradeStatus)) {
-            log.warn("支付宝核实订单已支付 ===> {}", orderNo);
+            log.info("【支付宝支付】订单已支付, 订单号: {}", orderNo);
             // 更新本地商户端订单状态
             orderInfoService.updateStatusByOrderNo(orderNo, OrderStatus.SUCCESS);
             // 记录支付日志
-            Map<String, String> paymentInfoMap = Optional.ofNullable(result)
+            Map<String, String> paymentInfoMap = Optional.of(result)
                     .map(JSON::parseObject)
                     .map(json -> json.getObject("alipay_trade_query_response", new TypeReference<Map<String, String>>() {
                     }))
@@ -271,7 +272,7 @@ public class AliPayServiceImpl implements AliPayService {
     }
 
     /**
-     * 申请退款
+     * 支付宝申请退款
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -375,6 +376,7 @@ public class AliPayServiceImpl implements AliPayService {
     @Override
     public String queryBill(String billDate, String type) {
         try {
+            log.info("【支付宝支付】开始查询对账单, 日期: {}, 类型: {}", billDate, type);
             AlipayDataDataserviceBillDownloadurlQueryRequest request = new AlipayDataDataserviceBillDownloadurlQueryRequest();
             AlipayDataDataserviceBillDownloadurlQueryModel model = new AlipayDataDataserviceBillDownloadurlQueryModel();
 
@@ -387,19 +389,16 @@ public class AliPayServiceImpl implements AliPayService {
 
             AlipayDataDataserviceBillDownloadurlQueryResponse response = alipayClient.execute(request);
             if (response.isSuccess()) {
-                log.info("支付宝获取对账单url调用成功，返回结果 ===> " + response.getBody());
-
-                //获取账单下载地址
-//                JSONObject jsonObject = JSON.parseObject(response.getBody(), JSONReader.Feature.SupportSmartMatch);
-//                JSONObject res = jsonObject.getObject("alipay_data_dataservice_bill_downloadurl_query_response", JSONObject.class);
-//                return res.getString("bill_download_url");
+                log.info("【支付宝支付】获取对账单URL成功, 日期: {}, 类型: {}", billDate, type);
                 return response.getBillDownloadUrl();
             } else {
-                log.info("调用失败，返回码 ===> " + response.getCode() + ", 返回描述 ===> " + response.getMsg());
+                log.error("【支付宝支付】获取对账单URL失败, 返回码: {}, 错误信息: {}", 
+                    response.getCode(), response.getMsg());
                 throw new RuntimeException("支付宝获取对账单url调用失败");
             }
 
         } catch (AlipayApiException e) {
+            log.error("【支付宝支付】获取对账单异常", e);
             throw new RuntimeException("支付宝获取对账单url调用失败", e);
         }
     }

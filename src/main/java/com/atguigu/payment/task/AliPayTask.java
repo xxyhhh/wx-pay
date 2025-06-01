@@ -32,13 +32,13 @@ public class AliPayTask {
     /**
      * 从第0秒开始，每隔30秒执行一次，查询订单创建超过5min，并且未支付的订单(解决支付宝回调失败问题)
      */
-//    @Scheduled(cron = "0/30 * * * * *")
+    @Scheduled(cron = "0/30 * * * * *")
     public void orderConfirm() {
-        log.info("开始执行定时任务,查询所有规定时间内未支付订单，向支付宝平台验证支付状态");
-        List<OrderInfo> orderInfoList = orderInfoService.getNoPayOrderByDuration(1, PayType.ALIPAY.getType());
+        log.info("【支付宝支付】开始执行定时任务,查询所有规定时间内未支付订单，向支付宝平台验证支付状态");
+        List<OrderInfo> orderInfoList = orderInfoService.getNoPayOrderByDuration(5, PayType.ALIPAY.getType());
         orderInfoList.forEach(orderInfo -> {
             String orderNo = orderInfo.getOrderNo();
-            log.warn("超时订单：{}", orderNo);
+            log.warn("【支付宝支付】超时订单：{}", orderNo);
 
             //核实订单状态:调用支付宝查单接口
             aliPayService.checkOrderStatus(orderNo);

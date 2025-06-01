@@ -60,8 +60,8 @@ public class AlipayController {
     @PostMapping("/trade/notify")
     @Operation(summary = "支付通知")
     public String tradeNotify(@RequestParam Map<String, String> params) {
-        log.info("支付通知正在执行");
-        log.info("通知参数 ==> {}", params);
+        log.info("【支付宝支付】支付通知正在执行");
+        log.info("【支付宝支付】通知参数 ==> {}", params);
         String result = "failure";
 
         try {
@@ -73,16 +73,16 @@ public class AlipayController {
                     AlipayConstants.SIGN_TYPE_RSA2);
             if (!signVerified) {
                 // TODO 验签失败则记录异常日志，并在response中返回failure.
-                log.error("支付成功,异步通知验签失败!");
+                log.error("【支付宝支付】支付成功,异步通知验签失败!");
                 return result;
             }
             // TODO 验签成功后
-            log.info("支付成功,异步通知验签成功!");
+            log.info("【支付宝支付】支付成功,异步通知验签成功!");
             // TODO 按照支付结果异步通知中的描述，对支付结果中的业务内容进行二次校验
             // 1、商户需要验证该通知数据中的 out_trade_no 是否为商户系统中创建的订单号
             OrderInfo order = orderInfoService.getOrderByOrderNo(params.get("out_trade_no"));
             if (order == null) {
-                log.error("订单不存在");
+                log.error("【支付宝支付】订单不存在");
                 return result;
             }
             // 2、判断 total_amount 是否确实为该订单的实际金额（即商户订单创建时的金额）
@@ -90,28 +90,28 @@ public class AlipayController {
             int totalAmountInt = new BigDecimal(totalAmount).multiply(new BigDecimal("100")).intValue();
             int totalFeeInt = order.getTotalFee().intValue();
             if (totalAmountInt != totalFeeInt) {
-                log.error("订单金额不一致");
+                log.error("【支付宝支付】订单金额不一致");
                 return result;
             }
             // 3、校验通知中的 seller_id（或者 seller_email）是否为 out_trade_no 这笔单据的对应的操作方（有的时候，一个商家可能有多个 seller_id/seller_email）。
             String sellerId = params.get("seller_id");
             String sellerIdProperty = config.getProperty("alipay.seller-id");
             if (!sellerId.equals(sellerIdProperty)) {
-                log.error("商户pid不一致");
+                log.error("【支付宝支付】商户pid不一致");
                 return result;
             }
             // 4、校验通知中的 app_id 是否为该商户本身
             String appId = params.get("app_id");
             String appIdProperty = config.getProperty("alipay.app-id");
             if (!appId.equals(appIdProperty)) {
-                log.error("商户appId不一致");
+                log.error("【支付宝支付】商户appId不一致");
                 return result;
             }
             // 只有交易通知状态为 TRADE_SUCCESS(产品支持退款功能) 或 TRADE_FINISHED(产品不支持退款功能) 时，支付宝才会认定为买家付款成功
             // 由于网页支付是支持退款功能的，我们只需判断 TRADE_SUCCESS 即可
             String tradeStatus = params.get("trade_status");
             if (!"TRADE_SUCCESS".equals(tradeStatus)) {
-                log.error("支付未成功");
+                log.error("【支付宝支付】支付未成功");
                 return result;
             }
             // 处理业务，修改订单状态，记录支付日志

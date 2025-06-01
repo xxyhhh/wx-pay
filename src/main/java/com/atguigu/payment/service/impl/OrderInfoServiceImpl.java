@@ -84,8 +84,8 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     public String getOrderStatus(String orderNo) {
         return
                 Optional.ofNullable(lambdaQuery()
-                                .eq(OrderInfo::getOrderNo, orderNo)
                                 .select(OrderInfo::getOrderStatus)
+                                .eq(OrderInfo::getOrderNo, orderNo)
                                 .one())
                         .map(OrderInfo::getOrderStatus)
                         .orElse(null);
@@ -99,8 +99,8 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         Instant minus = Instant.now().minus(Duration.ofMinutes(minutes)); // 当前时间减去 5min
         List<OrderInfo> list = lambdaQuery()
                 .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
-                .lt(OrderInfo::getCreateTime, minus)
                 .eq(OrderInfo::getPaymentType, paymentType)
+                .lt(OrderInfo::getCreateTime, minus)
                 .list();
         return list;
     }
@@ -121,8 +121,8 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     private OrderInfo getNoPayOrderByProductId(Long productId,String paymentType){
         return lambdaQuery()
               //.eq(OrderInfo::getUserId, xxx)     这里是要填的，但是这个项目没做权限所以省略了
-                .eq(OrderInfo::getProductId, productId)
                 .eq(OrderInfo::getOrderStatus, OrderStatus.NOTPAY.getType())
+                .eq(OrderInfo::getProductId, productId)
                 .eq(OrderInfo::getPaymentType, paymentType)
                 .one();
     }
